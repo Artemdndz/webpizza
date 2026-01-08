@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Тест определения адреса</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      margin-top: 10px;
+    }
+    button {
+      padding: 10px 15px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .status {
+      margin-top: 15px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+<h2>📍 Определение адреса</h2>
+
+<button id="geoBtn">Определить мой адрес</button>
+
+<input id="address" type="text" placeholder="Адрес появится здесь">
+
+<div class="status" id="status"></div>
+
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA4JfX17OUSfXCj58BuLMD2X8g1kQ55gW4"></script>
+
+<script>
+const btn = document.getElementById('geoBtn');
+const addressInput = document.getElementById('address');
+const statusDiv = document.getElementById('status');
+
+btn.addEventListener('click', () => {
+  statusDiv.textContent = 'Определяем местоположение...';
+
+  if (!navigator.geolocation) {
+    statusDiv.textContent = 'Геолокация не поддерживается браузером';
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    position => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+
+      statusDiv.textContent = 'Координаты получены, ищем адрес...';
+
+      const geocoder = new google.maps.Geocoder();
+
+      geocoder.geocode(
+        { location: { lat, lng } },
+        (results, status) => {
+          if (status === 'OK' && results[0]) {
+            addressInput.value = results[0].formatted_address;
+            statusDiv.innerHTML = `
+              ✅ Адрес найден<br>
+              <small>Lat: ${lat}<br>Lng: ${lng}</small>
+            `;
+          } else {
+            statusDiv.textContent = 'Адрес не найден';
+          }
+        }
+      );
+    },
+    error => {
+      statusDiv.textContent = 'Доступ к геолокации запрещён';
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000
+    }
+  );
+});
+</script>
+
+</body>
+</html>

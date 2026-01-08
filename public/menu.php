@@ -1,17 +1,10 @@
 <?php
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/../src/Database.php';
-require_once __DIR__ . '/../src/Cart.php';
-
-$db = Database::getInstance();
-$cart = new Cart();
+require_once __DIR__ . '/header.php';
 
 // Получаем параметры фильтрации
 $category_id = isset($_GET['category']) ? intval($_GET['category']) : null;
+$product_id = isset($_GET['product']) ? intval($_GET['product']) : null;
 $category = null;
-
-// Получаем категории для меню
-$categories = $db->getCategories();
 
 // Если выбрана категория, получаем её данные
 if ($category_id) {
@@ -25,101 +18,34 @@ if ($category_id) {
 
 // Получаем товары
 $products = $db->getProducts($category_id);
+if (!is_array($products)) {
+    $products = []; // Гарантируем, что $products всегда будет массивом
+}
+
+// Если передан параметр product, получаем данные этого товара
+$shared_product = null;
+if ($product_id) {
+    $shared_product = $db->getProduct($product_id);
+}
 ?>
-<!DOCTYPE html>
-<html lang="uk">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Меню - <?php echo SITE_NAME; ?></title>
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
-    <style>
-        .category-filter {
-            overflow-x: auto;
-            white-space: nowrap;
-            padding-bottom: 10px;
-        }
         
-        .category-filter .btn {
-            margin-right: 10px;
-            margin-bottom: 10px;
-        }
-        
-        .product-card {
-            height: 100%;
-            transition: transform 0.3s;
-        }
-        
-        .product-card:hover {
-            transform: translateY(-5px);
-        }
-        
-        .product-img {
-            height: 200px;
-            object-fit: cover;
-        }
-        
-        .topping-option {
-            border: 1px solid #dee2e6;
-            border-radius: 5px;
-            padding: 10px;
-            margin-bottom: 10px;
-            cursor: pointer;
-        }
-        
-        .topping-option:hover {
-            background-color: #f8f9fa;
-        }
-        
-        .topping-option.selected {
-            border-color: #0d6efd;
-            background-color: #e7f1ff;
-        }
-    </style>
-</head>
-<body>
-    <!-- Навигация (можно вынести в отдельный файл) -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <h1 class="h4 mb-0"><i class="fas fa-utensils"></i> One Chef</h1>
-            </a>
-            
-            <div class="d-flex">
-                <a href="/" class="btn btn-outline-secondary me-2">
-                    <i class="fas fa-home"></i> На головну
-                </a>
-                <a href="/cart.php" class="btn btn-primary position-relative">
-                    <i class="fas fa-shopping-cart"></i> Кошик
-                    <span id="cart-count" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                        <?php echo $cart->getTotalItems(); ?>
-                    </span>
-                </a>
-            </div>
-        </div>
-    </nav>
-    
-    <div class="container py-4">
         <!-- Заголовок и фильтры -->
         <div class="row mb-4">
             <div class="col-md-8">
-                <h1>
+                <h1 class="display-5 fw-bold">
                     <?php if($category): ?>
                         <?php echo htmlspecialchars($category['name']); ?>
                         <?php if($category['description']): ?>
-                            <small class="text-muted d-block mt-2"><?php echo htmlspecialchars($category['description']); ?></small>
+                            <small class="text-muted d-block mt-2 fs-5 fw-normal"><?php echo htmlspecialchars($category['description']); ?></small>
                         <?php endif; ?>
                     <?php else: ?>
                         Всі страви
                     <?php endif; ?>
                 </h1>
             </div>
-            <div class="col-md-4 text-end">
+            <div class="col-md-4 text-md-end">
                 <div class="input-group">
-                    <input type="text" id="search-input" class="form-control" placeholder="Пошук страв...">
+                    <input type="text" id="search-input" class="form-control bg-dark border-secondary text-white" placeholder="Пошук страв...">
                     <button class="btn btn-outline-secondary" type="button">
                         <i class="fas fa-search"></i>
                     </button>
@@ -128,7 +54,7 @@ $products = $db->getProducts($category_id);
         </div>
         
         <!-- Фильтр по категориям -->
-        <div class="category-filter mb-4">
+        <div class="category-filter mb-5">
             <a href="/menu.php" class="btn <?php echo !$category_id ? 'btn-primary' : 'btn-outline-primary'; ?>">
                 <i class="fas fa-utensils"></i> Всі
             </a>
@@ -144,55 +70,80 @@ $products = $db->getProducts($category_id);
         <div class="row" id="products-container">
             <?php if(empty($products)): ?>
             <div class="col-12 text-center py-5">
-                <h3 class="text-muted">Товари не знайдені</h3>
-                <p>Спробуйте обрати іншу категорію</p>
+                <div class="fade-in">
+                    <i class="fas fa-utensils fa-4x text-muted mb-3"></i>
+                    <h3 class="text-muted">Товари не знайдені</h3>
+                    <p class="text-secondary">Спробуйте обрати іншу категорію</p>
+                    <a href="/menu.php" class="btn btn-primary mt-3">
+                        <i class="fas fa-undo"></i> Повернутися до всіх категорій
+                    </a>
+                </div>
             </div>
             <?php endif; ?>
             
             <?php foreach($products as $product): ?>
             <div class="col-md-6 col-lg-4 col-xl-3 mb-4 product-item" 
                  data-name="<?php echo strtolower(htmlspecialchars($product['name'])); ?>"
-                 data-category="<?php echo $product['category_id']; ?>">
-                <div class="card product-card shadow-sm">
+                 data-category="<?php echo $product['category_id']; ?>"
+                 data-product-id="<?php echo $product['id']; ?>">
+                <div class="card product-card shadow-sm fade-in" style="cursor: pointer;" 
+                     onclick="openProductModal(<?php echo $product['id']; ?>)">
                     <!-- Бейдж новинки -->
                     <?php if($product['is_new']): ?>
-                    <span class="position-absolute top-0 start-0 m-2 badge bg-success">Новинка</span>
+                    <span class="badge bg-danger position-absolute top-0 start-0 m-2">Новинка</span>
+                    <?php endif; ?>
+                    
+                    <!-- Бейдж популярного -->
+                    <?php if($product['is_popular']): ?>
+                    <span class="badge bg-warning position-absolute top-0 end-0 m-2">Популярне</span>
                     <?php endif; ?>
                     
                     <!-- Фото товара -->
-                    <img src="<?php echo htmlspecialchars($product['photo'] ?: 'https://via.placeholder.com/300x200/FF6B35/ffffff?text=' . urlencode($product['name'])); ?>" 
-                         class="card-img-top product-img" 
-                         alt="<?php echo htmlspecialchars($product['name']); ?>"
-                         onerror="this.src='https://via.placeholder.com/300x200/cccccc/666666?text=No+Image'">
+                    <div class="product-img-wrapper">
+                        <img src="<?php echo htmlspecialchars($product['photo'] ?: '/images/placeholder.jpg'); ?>" 
+                             class="product-img w-100" 
+                             alt="<?php echo htmlspecialchars($product['name']); ?>"
+                             onerror="this.src='https://via.placeholder.com/300x200/333333/888888?text=No+Image'">
+                    </div>
                     
-                    <div class="card-body">
-                        <!-- Название и описание -->
-                        <h5 class="card-title"><?php echo htmlspecialchars($product['name']); ?></h5>
-                        <p class="card-text text-muted small">
-                            <?php echo htmlspecialchars($product['description']); ?>
+                    <div class="card-body d-flex flex-column">
+                        <!-- Название -->
+                        <h5 class="card-title mb-2"><?php echo htmlspecialchars($product['name']); ?></h5>
+                        
+                        <!-- Описание -->
+                        <p class="card-text text-secondary small mb-2">
+                            <?php 
+                            $description = htmlspecialchars($product['description']);
+                            if (strlen($description) > 80) {
+                                echo substr($description, 0, 80) . '...';
+                            } else {
+                                echo $description;
+                            }
+                            ?>
                         </p>
                         
                         <!-- Вес и время приготовления -->
-                        <div class="d-flex justify-content-between small text-muted mb-2">
-                            <span><i class="fas fa-weight"></i> <?php echo htmlspecialchars($product['weight']); ?></span>
-                            <span><i class="fas fa-clock"></i> <?php echo $product['prep_time']; ?> хв</span>
+                        <div class="d-flex justify-content-between small text-muted mb-3">
+                            <span><i class="fas fa-weight me-1"></i> <?php echo htmlspecialchars($product['weight']); ?></span>
+                            <span><i class="fas fa-clock me-1"></i> <?php echo $product['prep_time']; ?> хв</span>
                         </div>
                         
                         <!-- Цена и кнопка -->
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mt-auto">
                             <div>
-                                <span class="h5 text-primary"><?php echo number_format($product['price'], 0); ?> грн</span>
+                                <span class="h5 text-primary mb-0"><?php echo number_format($product['price'], 0); ?> грн</span>
                                 <?php if($product['old_price']): ?>
-                                <small class="text-muted text-decoration-line-through ms-2">
+                                <small class="text-muted text-decoration-line-through ms-2 d-block">
                                     <?php echo number_format($product['old_price'], 0); ?> грн
                                 </small>
                                 <?php endif; ?>
                             </div>
                             <button class="btn btn-sm btn-primary add-to-cart-btn"
-                                    data-product-id="<?php echo $product['id']; ?>"
-                                    data-product-name="<?php echo htmlspecialchars($product['name']); ?>"
-                                    data-product-price="<?php echo $product['price']; ?>"
-                                    data-category-id="<?php echo $product['category_id']; ?>">
+                                    onclick="event.stopPropagation(); addToCart(
+                                        '<?php echo $product['id']; ?>',
+                                        '<?php echo htmlspecialchars(addslashes($product['name'])); ?>',
+                                        '<?php echo $product['price']; ?>'
+                                    )">
                                 <i class="fas fa-plus"></i> В кошик
                             </button>
                         </div>
@@ -201,277 +152,333 @@ $products = $db->getProducts($category_id);
             </div>
             <?php endforeach; ?>
         </div>
-    </div>
-    
-    <!-- Модальное окно добавок -->
-    <div class="modal fade" id="toppingsModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalProductName"></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="toppingsContainer">
-                        <!-- Добавки будут загружены через AJAX -->
+        
+        <!-- Кнопка "Все меню" -->
+        <?php if(!empty($products) && $category_id): ?>
+        <div class="text-center mt-5">
+            <a href="/menu.php" class="btn btn-outline-primary px-4">
+                <i class="fas fa-arrow-left me-2"></i>Всі категорії
+            </a>
+        </div>
+        <?php endif; ?>
+        
+        <!-- Модальное окно деталей товара -->
+        <div class="modal fade" id="productDetailModal" tabindex="-1" data-bs-theme="dark" data-bs-backdrop="static">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content bg-dark rounded-lg">
+                    <!-- Кнопка закрытия -->
+                    <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3 z-3" 
+                            data-bs-dismiss="modal" onclick="closeProductModal()"></button>
+                    
+                    <!-- Фото товара -->
+                    <div class="product-modal-img-container">
+                        <img id="detailProductImg" src="" class="img-fluid" alt="">
                     </div>
-                    <div class="mb-3">
-                        <label for="itemComment" class="form-label">Коментар до страви (необов'язково)</label>
-                        <textarea class="form-control" id="itemComment" rows="2" placeholder="Наприклад: без цибулі, додати більше соусу..."></textarea>
+                    
+                    <div class="modal-body p-4">
+                        <!-- Название товара -->
+                        <h3 id="detailProductName" class="mb-3"></h3>
+                        
+                        <!-- Цена -->
+                        <div class="mb-4">
+                            <h4 class="text-primary" id="detailProductPrice"></h4>
+                            <p class="text-muted text-decoration-line-through" id="detailProductOldPrice" style="display: none;"></p>
+                        </div>
+                        
+                        <!-- Описание -->
+                        <div class="mb-4">
+                            <h6 class="text-secondary mb-2">Опис</h6>
+                            <p id="detailProductDescription" class="text-light mb-0"></p>
+                        </div>
+                        
+                        <!-- Характеристики -->
+                        <div class="row mb-4">
+                            <div class="col-6">
+                                <div class="product-feature">
+                                    <i class="fas fa-weight text-primary me-2"></i>
+                                    <span id="detailProductWeight"></span>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="product-feature">
+                                    <i class="fas fa-clock text-primary me-2"></i>
+                                    <span id="detailProductPrepTime"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Кнопка "Поделиться" -->
+                        <div class="d-flex justify-content-center mb-4">
+                            <button class="btn btn-outline-secondary w-100" id="shareProductBtn">
+                                <i class="fas fa-share-alt me-2"></i> Поділитися
+                            </button>
+                        </div>
+                        
+                        <!-- Кнопка добавления в корзину -->
+                        <button class="btn btn-primary btn-lg w-100 py-3" id="detailAddToCartBtn">
+                            <i class="fas fa-cart-plus me-2"></i> Додати в кошик
+                        </button>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <div class="me-auto">
-                        <h5>Разом: <span id="modalTotalPrice">0</span> грн</h5>
-                    </div>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
-                    <button type="button" class="btn btn-primary" id="addToCartModalBtn">
-                        <i class="fas fa-cart-plus"></i> Додати в кошик
-                    </button>
                 </div>
             </div>
         </div>
-    </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
     <script>
         // Текущий выбранный товар
         let currentProduct = null;
-        let selectedToppings = [];
-        let toppingsModal = null;
+        let productDetailModal = null;
         
-        // Инициализация модального окна
+        // Инициализация модальных окон при загрузке страницы
         document.addEventListener('DOMContentLoaded', function() {
-            toppingsModal = new bootstrap.Modal(document.getElementById('toppingsModal'));
+            productDetailModal = new bootstrap.Modal(document.getElementById('productDetailModal'));
+            
+            // Проверяем, есть ли параметр product в URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const productIdFromUrl = urlParams.get('product');
+            
+            // Если передан параметр product, открываем модальное окно
+            if (productIdFromUrl && !isNaN(productIdFromUrl)) {
+                setTimeout(() => {
+                    openProductModal(productIdFromUrl, true);
+                }, 500); // Небольшая задержка для полной загрузки страницы
+            }
+            
+            // Инициализация нативной кнопки поделиться
+            if (navigator.share) {
+                document.getElementById('shareProductBtn').addEventListener('click', shareProduct);
+            } else {
+                // Если нативный Web Share API не поддерживается, показываем альтернативу
+                document.getElementById('shareProductBtn').addEventListener('click', function() {
+                    showNotification('Функція "Поділитися" доступна тільки на мобільних пристроях', 'info');
+                });
+            }
             
             // Поиск товаров
-            document.getElementById('search-input').addEventListener('input', function(e) {
-                const searchTerm = e.target.value.toLowerCase();
-                const productItems = document.querySelectorAll('.product-item');
-                
-                productItems.forEach(item => {
-                    const productName = item.dataset.name;
-                    if (productName.includes(searchTerm)) {
-                        item.style.display = 'block';
-                    } else {
-                        item.style.display = 'none';
-                    }
-                });
-            });
-            
-            // Обработчики кнопок "В корзину"
-            document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    currentProduct = {
-                        id: this.dataset.productId,
-                        name: this.dataset.productName,
-                        price: parseFloat(this.dataset.productPrice),
-                        category_id: this.dataset.categoryId
-                    };
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                searchInput.addEventListener('input', function(e) {
+                    const searchTerm = e.target.value.toLowerCase().trim();
+                    const productItems = document.querySelectorAll('.product-item');
                     
-                    // Загружаем добавки для этой категории
-                    loadToppings(currentProduct.category_id);
-                    
-                    // Показываем модальное окно
-                    document.getElementById('modalProductName').textContent = currentProduct.name;
-                    toppingsModal.show();
+                    productItems.forEach(item => {
+                        const productName = item.dataset.name;
+                        if (searchTerm === '' || productName.includes(searchTerm)) {
+                            item.style.display = 'block';
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
                 });
+            }
+            
+            // Кнопка добавления в корзину в детальном модальном окне
+            document.getElementById('detailAddToCartBtn').addEventListener('click', function() {
+                if (currentProduct) {
+                    addToCart(
+                        currentProduct.id,
+                        currentProduct.name,
+                        currentProduct.price
+                    );
+                    productDetailModal.hide();
+                }
             });
             
-            // Кнопка добавления в корзину в модальном окне
-            document.getElementById('addToCartModalBtn').addEventListener('click', function() {
-                if (!currentProduct) return;
-                
-                const comment = document.getElementById('itemComment').value;
-                
-                // Отправляем запрос на сервер
-                fetch('/api/cart/add.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        product_id: currentProduct.id,
-                        name: currentProduct.name,
-                        price: currentProduct.price,
-                        quantity: 1,
-                        toppings: selectedToppings,
-                        comment: comment
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Обновляем счетчик в корзине
-                        updateCartCount(data.total_items);
-                        
-                        // Закрываем модальное окно
-                        toppingsModal.hide();
-                        
-                        // Сбрасываем форму
-                        resetToppingsForm();
-                        
-                        // Показываем уведомление
-                        showNotification(`"${currentProduct.name}" додано до кошика!`, 'success');
-                    } else {
-                        showNotification('Помилка: ' + data.message, 'error');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showNotification('Помилка при додаванні до кошика', 'error');
-                });
-            });
-            
-            // Событие закрытия модального окна
-            document.getElementById('toppingsModal').addEventListener('hidden.bs.modal', function() {
-                resetToppingsForm();
+            // Событие закрытия модального окна деталей товара
+            document.getElementById('productDetailModal').addEventListener('hidden.bs.modal', function() {
+                // Убираем параметр product из URL при закрытии модального окна
+                removeProductParamFromUrl();
+                currentProduct = null;
             });
         });
         
-        // Загрузка добавок
-        function loadToppings(category_id) {
-            fetch(`/api/toppings/get.php?category_id=${category_id}`)
+        // Открыть модальное окно с деталями товара
+        function openProductModal(productId, fromUrl = false) {
+            fetch(`/api/product/get.php?id=${productId}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        renderToppings(data.toppings);
+                        const product = data.product;
+                        currentProduct = {
+                            id: product.id,
+                            name: product.name,
+                            price: parseFloat(product.price)
+                        };
+                        
+                        // Заполняем модальное окно данными
+                        const productImg = document.getElementById('detailProductImg');
+                        const fallbackImg = '/images/placeholder.jpg';
+                        
+                        productImg.src = product.photo || fallbackImg;
+                        productImg.onerror = function() {
+                            this.src = fallbackImg;
+                        };
+                        
+                        document.getElementById('detailProductName').textContent = product.name;
+                        document.getElementById('detailProductDescription').textContent = product.description || 'Опис відсутній';
+                        document.getElementById('detailProductWeight').textContent = product.weight ? `${product.weight}` : 'Не вказано';
+                        document.getElementById('detailProductPrepTime').textContent = product.prep_time ? `${product.prep_time} хв` : 'Не вказано';
+                        document.getElementById('detailProductPrice').textContent = `${product.price} грн`;
+                        
+                        if (product.old_price && parseFloat(product.old_price) > parseFloat(product.price)) {
+                            document.getElementById('detailProductOldPrice').style.display = 'block';
+                            document.getElementById('detailProductOldPrice').textContent = `${product.old_price} грн`;
+                        } else {
+                            document.getElementById('detailProductOldPrice').style.display = 'none';
+                        }
+                        
+                        productDetailModal.show();
+                        
+                        // Если открыто по ссылке, добавляем параметр в URL
+                        if (fromUrl) {
+                            addProductParamToUrl(productId);
+                        }
+                        
+                        // Выделяем соответствующий товар в списке
+                        highlightProductInList(productId);
+                        
                     } else {
-                        document.getElementById('toppingsContainer').innerHTML = 
-                            '<p class="text-muted">Немає доступних добавок</p>';
+                        showNotification('Товар не знайдено', 'error');
+                        if (fromUrl) {
+                            removeProductParamFromUrl();
+                        }
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    document.getElementById('toppingsContainer').innerHTML = 
-                        '<p class="text-danger">Помилка завантаження добавок</p>';
+                    showNotification('Помилка завантаження товару', 'error');
+                    if (fromUrl) {
+                        removeProductParamFromUrl();
+                    }
                 });
         }
         
-        // Отрисовка добавок
-        function renderToppings(toppingGroups) {
-            const container = document.getElementById('toppingsContainer');
-            container.innerHTML = '';
-            selectedToppings = [];
-            
-            if (!toppingGroups || toppingGroups.length === 0) {
-                container.innerHTML = '<p class="text-muted">Немає доступних добавок</p>';
-                updateTotalPrice();
-                return;
-            }
-            
-            toppingGroups.forEach(group => {
-                const groupElement = document.createElement('div');
-                groupElement.className = 'mb-4';
-                groupElement.innerHTML = `
-                    <h6>${group.name}</h6>
-                    <small class="text-muted d-block mb-2">
-                        ${group.type === 'single' ? 'Виберіть один варіант' : 
-                          group.type === 'required' ? 'Обов\'язково виберіть' : 
-                          'Можна вибрати кілька'} 
-                        ${group.min_selection > 0 ? ` (мінімум ${group.min_selection})` : ''}
-                        ${group.max_selection > 0 ? ` (максимум ${group.max_selection})` : ''}
-                    </small>
-                    <div id="group-${group.id}" class="toppings-group"></div>
-                `;
-                container.appendChild(groupElement);
-                
-                // Добавляем варианты добавок
-                const groupContainer = document.getElementById(`group-${group.id}`);
-                group.toppings.forEach(topping => {
-                    const toppingElement = document.createElement('div');
-                    toppingElement.className = 'topping-option';
-                    toppingElement.innerHTML = `
-                        <div class="form-check">
-                            <input class="form-check-input" type="${group.type === 'single' ? 'radio' : 'checkbox'}" 
-                                   name="topping-group-${group.id}" 
-                                   id="topping-${topping.id}" 
-                                   value="${topping.id}"
-                                   data-price="${topping.price}">
-                            <label class="form-check-label w-100" for="topping-${topping.id}">
-                                <div class="d-flex justify-content-between">
-                                    <span>${topping.name}</span>
-                                    <span class="text-primary">+${topping.price} грн</span>
-                                </div>
-                                ${topping.weight ? `<small class="text-muted">${topping.weight}</small>` : ''}
-                            </label>
-                        </div>
-                    `;
-                    
-                    // Обработчик выбора добавки
-                    const input = toppingElement.querySelector('input');
-                    input.addEventListener('change', function() {
-                        if (this.checked) {
-                            // Для radio кнопок убираем предыдущий выбор в этой группе
-                            if (group.type === 'single') {
-                                selectedToppings = selectedToppings.filter(t => {
-                                    const toppingGroup = group.toppings.find(g => g.id === t.topping_id);
-                                    return !toppingGroup || toppingGroup.group_id !== group.id;
-                                });
-                            }
-                            
-                            selectedToppings.push({
-                                topping_id: topping.id,
-                                name: topping.name,
-                                price: parseFloat(topping.price),
-                                quantity: 1,
-                                group_id: group.id,
-                                group_type: group.type
-                            });
-                        } else {
-                            selectedToppings = selectedToppings.filter(t => t.topping_id !== topping.id);
-                        }
-                        
-                        updateTotalPrice();
-                    });
-                    
-                    groupContainer.appendChild(toppingElement);
-                });
-            });
-            
-            updateTotalPrice();
-        }
-        
-        // Обновление общей цены
-        function updateTotalPrice() {
-            let total = currentProduct ? currentProduct.price : 0;
-            
-            selectedToppings.forEach(topping => {
-                total += topping.price * topping.quantity;
-            });
-            
-            document.getElementById('modalTotalPrice').textContent = total.toFixed(2);
-        }
-        
-        // Сброс формы добавок
-        function resetToppingsForm() {
+        // Закрыть модальное окно товара
+        function closeProductModal() {
+            productDetailModal.hide();
+            removeProductParamFromUrl();
             currentProduct = null;
-            selectedToppings = [];
-            document.getElementById('itemComment').value = '';
-            document.getElementById('modalTotalPrice').textContent = '0';
-            document.getElementById('toppingsContainer').innerHTML = '';
+        }
+        
+        // Добавить параметр product в URL
+        function addProductParamToUrl(productId) {
+            const url = new URL(window.location);
+            url.searchParams.set('product', productId);
+            window.history.replaceState({}, '', url);
+        }
+        
+        // Убрать параметр product из URL
+        function removeProductParamFromUrl() {
+            const url = new URL(window.location);
+            url.searchParams.delete('product');
+            window.history.replaceState({}, '', url);
+        }
+        
+        // Выделить товар в списке
+        function highlightProductInList(productId) {
+            // Убираем выделение со всех товаров
+            document.querySelectorAll('.product-card').forEach(card => {
+                card.style.boxShadow = '';
+                card.style.borderColor = '';
+            });
+            
+            // Находим карточку товара и выделяем её
+            const productCard = document.querySelector(`.product-item[data-product-id="${productId}"] .product-card`);
+            if (productCard) {
+                productCard.style.boxShadow = '0 0 0 3px var(--primary)';
+                productCard.style.borderColor = 'var(--primary)';
+                
+                // Прокручиваем к товару
+                productCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+        
+        // Нативная функция "Поделиться"
+        function shareProduct() {
+            if (!currentProduct) return;
+            
+            const shareData = {
+                title: currentProduct.name + ' - <?php echo SITE_NAME; ?>',
+                text: `Спробуйте "${currentProduct.name}" у <?php echo SITE_NAME; ?>! ${currentProduct.price} грн`,
+                url: window.location.origin + '/menu.php?product=' + currentProduct.id
+            };
+            
+            if (navigator.share) {
+                navigator.share(shareData)
+                    .then(() => {
+                        showNotification('Поділено успішно!', 'success');
+                    })
+                    .catch((error) => {
+                        if (error.name !== 'AbortError') {
+                            console.error('Помилка при спробі поділитися:', error);
+                        }
+                    });
+            } else {
+                // Резервный вариант для десктопов
+                const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareData.url)}`;
+                window.open(url, '_blank', 'width=600,height=400');
+            }
+        }
+        
+        // Функция добавления в корзину
+        function addToCart(productId, productName, productPrice) {
+            fetch('/api/cart/add.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    id: productId,
+                    name: productName,
+                    price: productPrice,
+                    quantity: 1
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Обновляем счетчик в корзине
+                    updateCartCount(data.total_items);
+                    
+                    // Показываем уведомление
+                    showNotification(`"${productName}" додано до кошика!`, 'success');
+                } else {
+                    showNotification('Помилка: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Помилка при додаванні до кошика', 'error');
+            });
         }
         
         // Обновление счетчика корзины
         function updateCartCount(count) {
-            document.getElementById('cart-count').textContent = count;
+            const cartCount = document.getElementById('cart-count');
+            if (cartCount) {
+                cartCount.textContent = count;
+            }
         }
         
         // Показ уведомления
-        function showNotification(message, type = 'info') {
+        function showNotification(message, type = 'success') {
             const alert = document.createElement('div');
             alert.className = `alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show position-fixed`;
             alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 300px;';
             alert.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-${type === 'error' ? 'exclamation-circle' : 'check-circle'} me-2"></i>
+                    <div>${message}</div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
             `;
             document.body.appendChild(alert);
             
             setTimeout(() => {
-                alert.remove();
+                if (alert.parentElement) {
+                    alert.remove();
+                }
             }, 3000);
         }
     </script>
-</body>
-</html>
+
+<?php require_once 'footer.php'; ?>

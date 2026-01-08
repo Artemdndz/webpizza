@@ -89,40 +89,42 @@ class Database {
         return $stmt->fetch();
     }
     
-    // Создать заказ
-    public function createOrder($data) {
-        $sql = "INSERT INTO orders (
-                    customer_name, phone, email, type, address, 
-                    total, discount, status, payment_method, 
-                    payment_status, comment, preparation_time, source
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([
-            $data['customer_name'],
-            $data['phone'],
-            $data['email'] ?? '',
-            $data['type'],
-            $data['address'] ?? '',
-            $data['total'],
-            $data['discount'] ?? 0,
-            $data['status'] ?? 'new',
-            $data['payment_method'] ?? 'cash',
-            $data['payment_status'] ?? 'pending',
-            $data['comment'] ?? '',
-            $data['preparation_time'] ?? null,
-            $data['source'] ?? 'website'
-        ]);
-        
-        return $this->pdo->lastInsertId();
-    }
+// Создать заказ
+public function createOrder($data) {
+    $sql = "INSERT INTO orders (
+                customer_name, phone, email, type, address, 
+                total, discount, status, payment_method, 
+                payment_status, comment, preparation_time, 
+                scheduled_time, source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    
+    $stmt = $this->pdo->prepare($sql);
+    $stmt->execute([
+        $data['customer_name'],
+        $data['phone'],
+        $data['email'] ?? '',
+        $data['type'],
+        $data['address'] ?? '',
+        $data['total'],
+        $data['discount'] ?? 0,
+        $data['status'] ?? 'new',
+        $data['payment_method'] ?? 'cash',
+        $data['payment_status'] ?? 'pending',
+        $data['comment'] ?? '',
+        $data['preparation_time'] ?? null,
+        $data['scheduled_time'] ?? null,
+        $data['source'] ?? 'website'
+    ]);
+    
+    return $this->pdo->lastInsertId();
+}
     
     // Добавить товар в заказ
     public function addOrderItem($order_id, $item) {
         $sql = "INSERT INTO order_items (
                     order_id, product_id, product_name, 
-                    product_price, quantity, toppings, comment
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                    product_price, quantity, comment
+                ) VALUES (?, ?, ?, ?, ?, ?)";
         
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([
@@ -131,52 +133,10 @@ class Database {
             $item['product_name'],
             $item['product_price'],
             $item['quantity'],
-            json_encode($item['toppings'] ?? [], JSON_UNESCAPED_UNICODE),
             $item['comment'] ?? ''
         ]);
         
         return $this->pdo->lastInsertId();
-    }
-    
-    // Получить добавки для категории
-    public function getToppingsForCategory($category_id) {
-        $sql = "SELECT tg.*, t.id as topping_id, t.name as topping_name, 
-                       t.price as topping_price, t.weight as topping_weight
-                FROM topping_groups tg
-                LEFT JOIN toppings t ON tg.id = t.topping_group_id
-                WHERE tg.category_id = ? 
-                ORDER BY tg.priority ASC, t.priority ASC";
-        
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([$category_id]);
-        
-        $result = $stmt->fetchAll();
-        $groups = [];
-        
-        foreach ($result as $row) {
-            $group_id = $row['id'];
-            if (!isset($groups[$group_id])) {
-                $groups[$group_id] = [
-                    'id' => $row['id'],
-                    'name' => $row['name'],
-                    'type' => $row['type'],
-                    'min_selection' => $row['min_selection'],
-                    'max_selection' => $row['max_selection'],
-                    'toppings' => []
-                ];
-            }
-            
-            if ($row['topping_id']) {
-                $groups[$group_id]['toppings'][] = [
-                    'id' => $row['topping_id'],
-                    'name' => $row['topping_name'],
-                    'price' => $row['topping_price'],
-                    'weight' => $row['topping_weight']
-                ];
-            }
-        }
-        
-        return array_values($groups);
     }
     
     // Проверка существования телефона в базе
@@ -217,5 +177,118 @@ class Database {
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([$order_total, $customer_id]);
     }
+    
+    public function addProduct($data) {
+        try {
+            $sql = "INSERT INTO products (name, description, price, old_price, weight, prep_time, category_id, 
+                    is_new, is_popular, active, pos_id, priority, photo) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                $data['name'] ?? '',
+                $data['description'] ?? '',
+                $data['price'] ?? 0,
+                $data['old_price'],
+                $data['weight'] ?? '',
+                $data['prep_time'] ?? 30,
+                $data['category_id'] ?? 1,
+                $data['is_new'] ?? 0,
+                $data['is_popular'] ?? 0,
+                $data['active'] ?? 1,
+                $data['pos_id'] ?? '',
+                $data['priority'] ?? 100,
+                $data['photo'] ?? null
+            ]);
+            
+            return $this->pdo->lastInsertId();
+        } catch (PDOException $e) {
+            error_log("Database Error: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    public function getAllProducts() {
+        try {
+            $sql = "SELECT p.*, c.name as category_name 
+                    FROM products p 
+                    LEFT JOIN categories c ON p.category_id = c.id 
+                    ORDER BY p.priority ASC, p.id DESC";
+            
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Database Error: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    
+    public function getProductById($id) {
+        try {
+            $sql = "SELECT * FROM products WHERE id = ?";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$id]);
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Database Error: " . $e->getMessage());
+            return null;
+        }
+    }
+    
+    public function updateProduct($id, $data) {
+        try {
+            $sql = "UPDATE products SET 
+                    name = ?, description = ?, price = ?, old_price = ?, weight = ?, 
+                    prep_time = ?, category_id = ?, is_new = ?, is_popular = ?, 
+                    active = ?, pos_id = ?, priority = ?, photo = ? 
+                    WHERE id = ?";
+            
+            $stmt = $this->pdo->prepare($sql);
+            return $stmt->execute([
+                $data['name'] ?? '',
+                $data['description'] ?? '',
+                $data['price'] ?? 0,
+                $data['old_price'],
+                $data['weight'] ?? '',
+                $data['prep_time'] ?? 30,
+                $data['category_id'] ?? 1,
+                $data['is_new'] ?? 0,
+                $data['is_popular'] ?? 0,
+                $data['active'] ?? 1,
+                $data['pos_id'] ?? '',
+                $data['priority'] ?? 100,
+                $data['photo'],
+                $id
+            ]);
+        } catch (PDOException $e) {
+            error_log("Database Error: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    public function deleteProduct($id) {
+        try {
+            // Сначала получаем фото для удаления файла
+            $product = $this->getProductById($id);
+            if ($product && !empty($product['photo'])) {
+                // Используем абсолютный путь к публичной директории
+                $photo_path = __DIR__ . '/../public' . $product['photo'];
+                if (file_exists($photo_path) && is_file($photo_path)) {
+                    unlink($photo_path);
+                }
+            }
+            
+            $sql = "DELETE FROM products WHERE id = ?";
+            $stmt = $this->pdo->prepare($sql);
+            return $stmt->execute([$id]);
+        } catch (PDOException $e) {
+            error_log("Database Error: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+
 }
 ?>

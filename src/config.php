@@ -1,16 +1,16 @@
 <?php
 // Database configuration
-define('DB_HOST', 'reanim02.mysql.tools');
-define('DB_NAME', 'reanim02_onechef');
-define('DB_USER', 'reanim02_onechef');
-define('DB_PASS', '9nj;MSe6~2');
+define('DB_HOST', '');
+define('DB_NAME', '');
+define('DB_USER', '');
+define('DB_PASS', '');
 
 // Site configuration
 define('SITE_URL', 'https://onechef.reanimator.dp.ua');
 define('SITE_NAME', 'ONE CHEF');
 define('SITE_PHONE', '+380737001987');
 define('SITE_ADDRESS', 'проспект Науки, 57а, Дніпро');
-define('GMAPS_API_KEY', 'AIzaSyA4JfX17OUSfXCj58BuLMD2X8g1kQ55gW4');
+define('GMAPS_API_KEY', '');
 
 
 // Working hours (ДОБАВЛЯЕМ ЭТО)
